@@ -1,55 +1,30 @@
 services:
-  nginx-proxy:
-    container_name: nginx-proxy
-    image: jwilder/nginx-proxy
-    networks:
-      backend:
-        ipv4_address: 172.28.1.6
-    ports:
-      - "443:443"
-      - "80:80"
+  backend:
+    build: backend
+    secrets:
+      - db-password
+    depends_on:
+      - db
+  db:
+    image: mariadb
     restart: always
-
-  percona:
-    container_name: percona
-    image: percona:5.7
-    platform: linux/amd64
-    networks:
-      backend:
-        ipv4_address: 172.28.1.2
-    restart: always
-    ports:
-      - '3306:3306'
+    secrets:
+      - db-password
     volumes:
       - db-data:/var/lib/mysql
-    user: mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
-
-  rabbitmq:
-    container_name: rabbitmq
-    hostname: rabbitmq
-    image: rabbitmq:3.9.10-management-alpine
-    networks:
-      backend:
-        ipv4_address: 172.28.1.5
-    environment:
-      - RABBITMQ_ERLANG_COOKIE=SWQOKODSQALRPCLNMEQG
-      - RABBITMQ_DEFAULT_USER=rabbitmq
-      - RABBITMQ_DEFAULT_PASS=rabbitmq
+      - MYSQL_DATABASE=example
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/db-password
+    expose:
+      - 3306
+  proxy:
+    build: proxy
     ports:
-      # rabbitmq expose ports: 4369 5671 5672 25672
-      - '15672:15672'
-      - '5672:5672'
-      
+      - 80:80
+    depends_on:
+      - backend
 volumes:
   db-data:
-  www-data:
-networks:
-  backend:
-    driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.28.0.0/16
-          gateway: 172.28.0.1
+secrets:
+  db-password:
+    file: db/password.txt
